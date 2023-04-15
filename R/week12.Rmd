@@ -12,5 +12,12 @@ output:
 ```{r Set wd and load packages}
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 library(tidyverse)
-library(jsonlite)
+library(rvest)
+```
+
+## Data Import and Cleaning
+```{r}
+download <- fromJSON("https://www.reddit.com/r/IOPsychology/.json", flatten = TRUE)
+test <- as_tibble(download$data$children) %>%
+  select(title = data.title, upvotes = data.score)
 ```
