@@ -22,7 +22,7 @@ Come back to this later when I figure out how to download a year's worth of data
 ```{r}
 # The last approach I used trying to scrape Reddit data using fromJSON produced the same issues from before with page scrolling. So after some Chat GPTing, I found the RedditExtractoR package. It downloaded all the data I needed using this code, but it took about 15 minutes to do so. This package isn't part of the course materials, but it was an effective solution. See this page for details: https://github.com/ivan-rivera/RedditExtractor.
 
-# reddit_urls <- find_thread_urls(subreddit = "IOPsychology", sort_by = "top", period = "year")
+ #reddit_urls <- find_thread_urls(subreddit = "IOPsychology", sort_by = "new", period = "year")
 # reddit_content <- get_thread_content(reddit_urls$url)
 # week12_tbl <- as_tibble(reddit_content$threads) %>%
   # select(title = title, upvotes = upvotes)
@@ -49,5 +49,5 @@ compare_them <- function(corpus_origingal, corpus_trimmed) {
   compare <- list("Original" = content(io_corpus_original[[chosen]]), "Comparison" = content(io_corpus_trimmed[[chosen]]))
   return(compare)
 }
-replicate(20, compare_them)
+replicate(20, compare_them())
 ```
