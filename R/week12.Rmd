@@ -12,8 +12,6 @@ output:
 ```{r Set wd and load packages}
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 library(tidyverse)
-library(jsonlite)
-library(rvest)
 library(tm)
 library(qdap)
 library(textstem)
@@ -21,12 +19,15 @@ library(textstem)
 Come back to this later when I figure out how to download a year's worth of data.
 ## Data Import and Cleaning
 ```{r}
-download <- fromJSON("https://www.reddit.com/r/IOPsychology/top.json?t=year", flatten = TRUE)
-week12_tbl <- as_tibble(download$data$children) %>%
-  select(title = data.title, upvotes = data.score)
+# The last approach I used trying to scrape Reddit data using fromJSON produced the same issues from before with page scrolling. So after some Chat GPTing, I found the RedditExtractoR package. It downloaded all the data I needed using this code, but it took about 15 minutes to do so. This package isn't part of the course materials, but it was an effective solution.
+
+# reddit_urls <- find_thread_urls(subreddit = "IOPsychology", sort_by = "top", period = "year")
+# reddit_content <- get_thread_content(test$url)
+# week12_tbl <- as_tibble(reddit_content$threads) %>%
+  # select(title = title, upvotes = upvotes)
+# write_csv(week12_tbl, file = "../data/week12data.csv")
 ```
 
-Add the stop words specific to i-o when I have a full dataset.
 ```{r Corpus setup}
 io_corpus_original <- VCorpus(VectorSource(week12_tbl$title))
 io_corpus_trimmed <- io_corpus_original %>%
@@ -35,7 +36,7 @@ io_corpus_trimmed <- io_corpus_original %>%
   tm_map(content_transformer(str_to_lower)) %>%
   tm_map(removeNumbers) %>%
   tm_map(removePunctuation) %>%
-  tm_map(removeWords, stopwords("en")) %>%
+  tm_map(removeWords, c(stopwords("en"), "io", "io psychology", "io psych")) %>%
   tm_map(stripWhitespace) %>%
   tm_map(content_transformer(lemmatize_words))
 ```
