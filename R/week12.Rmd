@@ -16,6 +16,7 @@ library(jsonlite)
 library(rvest)
 library(tm)
 library(qdap)
+library(textstem)
 ```
 Come back to this later when I figure out how to download a year's worth of data.
 ## Data Import and Cleaning
@@ -25,6 +26,7 @@ week12_tbl <- as_tibble(download$data$children) %>%
   select(title = data.title, upvotes = data.score)
 ```
 
+Add the stop words specific to i-o when I have a full dataset.
 ```{r Corpus setup}
 io_corpus_original <- VCorpus(VectorSource(week12_tbl$title))
 io_corpus_trimmed <- io_corpus_original %>%
@@ -34,5 +36,6 @@ io_corpus_trimmed <- io_corpus_original %>%
   tm_map(removeNumbers) %>%
   tm_map(removePunctuation) %>%
   tm_map(removeWords, stopwords("en")) %>%
-  tm_map(stripWhitespace)
+  tm_map(stripWhitespace) %>%
+  tm_map(content_transformer(lemmatize_words))
 ```
