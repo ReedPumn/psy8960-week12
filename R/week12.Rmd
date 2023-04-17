@@ -12,12 +12,27 @@ output:
 ```{r Set wd and load packages}
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 library(tidyverse)
+library(jsonlite)
 library(rvest)
+library(tm)
+library(qdap)
 ```
-
+Come back to this later when I figure out how to download a year's worth of data.
 ## Data Import and Cleaning
 ```{r}
-download <- fromJSON("https://www.reddit.com/r/IOPsychology/.json", flatten = TRUE)
-test <- as_tibble(download$data$children) %>%
+download <- fromJSON("https://www.reddit.com/r/IOPsychology/top.json?t=year", flatten = TRUE)
+week12_tbl <- as_tibble(download$data$children) %>%
   select(title = data.title, upvotes = data.score)
+```
+
+```{r Corpus setup}
+io_corpus_original <- VCorpus(VectorSource(week12_tbl$title))
+io_corpus_trimmed <- io_corpus_original %>%
+  tm_map(content_transformer(replace_abbreviation)) %>%
+  tm_map(content_transformer(replace_contraction)) %>%
+  tm_map(content_transformer(str_to_lower)) %>%
+  tm_map(removeNumbers) %>%
+  tm_map(removePunctuation) %>%
+  tm_map(removeWords, stopwords("en")) %>%
+  tm_map(stripWhitespace)
 ```
