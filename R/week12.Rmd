@@ -19,6 +19,9 @@ library(textstem)
 library(RWeka)
 library(doParallel)
 library(ldatuning)
+library(topicmodels)
+library(tidytext)
+library(wordcloud)
 ```
 
 ## Data Import and Cleaning
@@ -78,6 +81,8 @@ io_dtm_tbl <- tibble(totals = rowSums(test), as_tibble(io_corpus_original))
 # Opening this tibble and using the arrow keys to sort the "totals" column, we find there are two missing data points. They coincide with doc_ids 487 and 737. To remove these entries, I went back and used the code provided on the Canvas page.
 ```
 
+
+## Analysis
 ```{r Categorizing posgts}
 # I am using paralellized processing to speed up this part of analyses. If you are running these analyses on a computer with less than 8 cores, you may want to not run this code.
 num_clusters <- makeCluster(7)
@@ -86,4 +91,37 @@ lda_tuning <- FindTopicsNumber(io_dtm, topics = seq(5, 20, by = 1), metrics = c(
 FindTopicsNumber_plot(lda_tuning)
 stopCluster(num_clusters)
 registerDoSEQ()
+# It seems like 10 topics exist in our data.
+```
+
+```{r Analyzing categories}
+lda_results <- LDA(io_dtm, 10)
+lda_betas <- tidy(lda_results, matrix = "beta")
+lda_gammas <- tidy(lda_results, matrix = "gamma")
+# This series of pipes produces the top words in each category. It's very helpful to see what topics each category focuses on.
+betas <- lda_betas %>%
+  group_by(topic) %>%
+  top_n(10, beta) %>%
+  arrange(topic, -beta)
+
+# This series of pipes does a similar procedure for our gamma values with documents.
+gammas <- lda_gammas %>%
+  group_by(document) %>%
+  top_n(1, gamma) %>%
+  slice(1) %>%
+  ungroup %>%
+  mutate(document = as.numeric(document)) %>%
+  arrange(document)
+
+# This series of lines creates our week12_tbl. We first create two tibbles with ids to enable joining.
+week12_tbl_with_ids <- week12_tbl %>%
+  mutate(doc_id = as.character(1:nrow(week12_tbl)))
+topics_tbl_with_ids <- tibble(doc_id = Docs(io_dtm))
+# We then create the tibble with the four columns we desire.
+week12_tbl <- topics_tbl_with_ids %>%
+  left_join(y = week12_tbl_with_ids) %>%
+  mutate(original = title,
+         topic = gammas$topic,
+         probability = gammas$gamma) %>%
+  select(-title, -upvotes)
 ```
