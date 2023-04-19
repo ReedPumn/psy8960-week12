@@ -82,11 +82,6 @@ io_slim_dtm <- removeSparseTerms(io_dtm, .997)
 n <- length(io_corpus_trimmed)
 k <- ncol(io_slim_dtm)
 n/k
-
-
-# This identifies which indices in our DTM are blank. I tried to preprocess with few custom stop words to prevent problems here.
-io_dtm_tbl <- tibble(totals = rowSums(test), as_tibble(io_corpus_original))
-# Opening this tibble and using the arrow keys to sort the "totals" column, we find there are two missing data points. They coincide with doc_ids 487 and 737. To remove these entries, I went back and used the code provided on the Canvas page.
 ```
 
 
