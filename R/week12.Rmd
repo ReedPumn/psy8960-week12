@@ -25,7 +25,7 @@ library(wordcloud)
 ```
 
 ## Data Import and Cleaning
-```{r}
+```{r Data import}
 # The last approach I used trying to scrape Reddit data using fromJSON produced the same issues from before with page scrolling. So after some Chat GPTing, I found the RedditExtractoR package. It downloaded all the data I needed using this code, but it took about 15 minutes to do so. This package isn't part of the course materials, but it was an effective solution. See this page for details: https://github.com/ivan-rivera/RedditExtractor.
 
  #reddit_urls <- find_thread_urls(subreddit = "IOPsychology", sort_by = "new", period = "year")
@@ -33,11 +33,15 @@ library(wordcloud)
 # week12_tbl <- as_tibble(reddit_content$threads) %>%
   # select(title = title, upvotes = upvotes)
 # write_csv(week12_tbl, file = "../data/week12data.csv")
+
+# By calling the previously downloaded data, I avoid the need to download it again.
 week12_tbl <- read_csv(file = "../data/week12data.csv")
 ```
 
 ```{r Corpus setup}
+# This is our base corpus we will use to contain all of the Reddit documents over the past year.
 io_corpus_original <- VCorpus(VectorSource(week12_tbl$title))
+# This trimmed corpus is similar to the original, but removes unnecessary information. I did not use many custom stop words given the relatively small number of documents we are analyzing (about 1000).
 io_corpus_trimmed <- io_corpus_original %>%
   tm_map(content_transformer(replace_abbreviation)) %>%
   tm_map(content_transformer(replace_contraction)) %>%
@@ -54,29 +58,33 @@ io_corpus_trimmed <- io_corpus_original %>%
 ```
 
 ```{r Comparing corpuses}
+# This function compares our two corpuses to let us check whether the trimmed corpus properly trimmed unnecessary information.
 compare_them <- function(corpus_origingal, corpus_trimmed) {
   possible <- 1:length(io_corpus_original)
   chosen <- sample(possible, 1)
   compare <- list("Original" = content(io_corpus_original[[chosen]]), "Comparison" = content(io_corpus_trimmed[[chosen]]))
   return(compare)
 }
+# With this replicate function, I can easily compare a decent number of entries at once.
 replicate(20, compare_them())
 ```
 
 ```{r Create DTMs}
+# This function uses a max value of 2 to represent our inclusion of bigrams. This is useful for some words like "human resources".
 tokenizer <- function(x) {
   NGramTokenizer(x, Weka_control(min = 1, max = 2))
 }
+# Now we apply our function to the trimmed corpus.
 io_dtm <- DocumentTermMatrix(io_corpus_trimmed, control = list(tokenize = tokenizer))
 # All sparse terms are eliminated with this sparse argument value.
 io_slim_dtm <- removeSparseTerms(io_dtm, .997)
-# These lines of code calculate our n:k ratio. I played with the numbers a bit, and setting teh sparse argument in the above line to .997 is the first value that reached our desired n:k threshold.
+# These lines of code calculate our n:k ratio. I played with the numbers a bit, and setting the sparse argument in the above line to .997 is the first value that reached our desired n:k threshold.
 n <- length(io_corpus_trimmed)
 k <- ncol(io_slim_dtm)
 n/k
 
 
-# This identifies which indices in our DTM are blank. I tried to preprocess softly to prevent problems here.
+# This identifies which indices in our DTM are blank. I tried to preprocess with few custom stop words to prevent problems here.
 io_dtm_tbl <- tibble(totals = rowSums(test), as_tibble(io_corpus_original))
 # Opening this tibble and using the arrow keys to sort the "totals" column, we find there are two missing data points. They coincide with doc_ids 487 and 737. To remove these entries, I went back and used the code provided on the Canvas page.
 ```
@@ -87,7 +95,9 @@ io_dtm_tbl <- tibble(totals = rowSums(test), as_tibble(io_corpus_original))
 # I am using paralellized processing to speed up this part of analyses. If you are running these analyses on a computer with less than 8 cores, you may want to not run this code.
 num_clusters <- makeCluster(7)
 registerDoParallel(num_clusters)
+# This line finds the number of topics in our data. I chose to compare findings across all four models to triangulate results.
 lda_tuning <- FindTopicsNumber(io_dtm, topics = seq(5, 20, by = 1), metrics = c( "Griffiths2004", "CaoJuan2009", "Arun2010", "Deveaud2014"), verbose = TRUE)
+# This line plots the previous possible numbers of topics.
 FindTopicsNumber_plot(lda_tuning)
 stopCluster(num_clusters)
 registerDoSEQ()
@@ -95,8 +105,11 @@ registerDoSEQ()
 ```
 
 ```{r Analyzing categories}
+# I chose to analyze our data with 10 topics based on findings from the previous plots.
 lda_results <- LDA(io_dtm, 10)
+# This line documents our beta matrix, noting the likelihood of each word appearing in the data.
 lda_betas <- tidy(lda_results, matrix = "beta")
+# Similarly, this line documents our gamma matrix, noting the likelihood fo each document appearing in the data.
 lda_gammas <- tidy(lda_results, matrix = "gamma")
 # This series of pipes produces the top words in each category. It's very helpful to see what topics each category focuses on.
 betas <- lda_betas %>%
@@ -127,9 +140,14 @@ week12_tbl <- topics_tbl_with_ids %>%
 ```
 
 ```{r Creating final tibble}
+# This final tibble adds the upvotes column to the week12_tbl.
 final_tbl <- week12_tbl %>%
   full_join(week12_tbl_with_ids) %>%
   select(-title)
+
+# Now conduct a statistical test to see if upvotes significantly differs by topic. We are comparing a DV across multiple IVs, so we run an ANOVA.
+summary(aov(upvotes ~ topic, data = final_tbl))
+# There was not a statistically significant difference between the number of upvotes across our topics. As a result, post-hoc analyses are not to be conducted.
 ```
 
 ```{r Interpretations}
