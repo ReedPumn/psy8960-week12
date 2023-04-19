@@ -16,6 +16,7 @@ library(RedditExtractoR)
 library(tm)
 library(qdap)
 library(textstem)
+library(RWeka)
 ```
 Come back to this later when I figure out how to download a year's worth of data.
 ## Data Import and Cleaning
@@ -27,6 +28,7 @@ Come back to this later when I figure out how to download a year's worth of data
 # week12_tbl <- as_tibble(reddit_content$threads) %>%
   # select(title = title, upvotes = upvotes)
 # write_csv(week12_tbl, file = "../data/week12data.csv")
+week12_tbl <- read_csv(file = "../data/week12data.csv")
 ```
 
 ```{r Corpus setup}
@@ -37,7 +39,7 @@ io_corpus_trimmed <- io_corpus_original %>%
   tm_map(content_transformer(str_to_lower)) %>%
   tm_map(removeNumbers) %>%
   tm_map(removePunctuation) %>%
-  tm_map(removeWords, c(stopwords("en"), "io", "io psychology", "io psych")) %>%
+  tm_map(removeWords, c(stopwords("en"), "io psychology")) %>%
   tm_map(stripWhitespace) %>%
   tm_map(content_transformer(lemmatize_words))
 ```
@@ -50,4 +52,22 @@ compare_them <- function(corpus_origingal, corpus_trimmed) {
   return(compare)
 }
 replicate(20, compare_them())
+```
+
+```{r Create DTMs}
+tokenizer <- function(x) {
+  NGramTokenizer(x, Weka_control(min = 1, max = 2))
+}
+io_dtm <- DocumentTermMatrix(io_corpus_trimmed, control = list(tokenize = tokenizer))
+# All sparse terms are eliminated with this sparse argument value.
+io_slim_dtm <- removeSparseTerms(io_dtm, .997)
+# These lines of code calculate our n:k ratio. I played with the numbers a bit, and setting teh sparse argument in the above line to .997 is the first value that reached our desired n:k threshold.
+n <- length(io_corpus_trimmed)
+k <- ncol(io_slim_dtm)
+n/k
+
+# This line of code identifies which indices in our DTM are blank. I tried to preprocess softly to prevent problems here.
+empty_indices <- which(io_dtm$dimnames$Terms == 0, arr.ind = TRUE)
+# Print the empty indices. Because none were printed, no empty indices exist.
+print(empty_indices)
 ```
