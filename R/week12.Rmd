@@ -126,6 +126,12 @@ week12_tbl <- topics_tbl_with_ids %>%
   select(-title, -upvotes)
 ```
 
+```{r Creating final tibble}
+final_tbl <- week12_tbl %>%
+  full_join(week12_tbl_with_ids) %>%
+  select(-title)
+```
+
 ```{r Interpretations}
 # Q1: Using the beta matrix alone, what topics would you conclude your final topic list maps onto? (e.g., topic 1, 2, 3…n each reflect what substantive topic construct? Use your best judgment.)
 # A1: From the previous topic plots, I chose 10 topics. I labeled these topics as follows: 1) career searching, 2) disseminating content, 3) professional development, 4) career development, 5) I-O functions, 6) seeking advice, 7) training programs, 8) general I-O psychology, 9) analysis, and 10) graduate school.
