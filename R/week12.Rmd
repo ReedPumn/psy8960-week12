@@ -17,8 +17,10 @@ library(tm)
 library(qdap)
 library(textstem)
 library(RWeka)
+library(doParallel)
+library(ldatuning)
 ```
-Come back to this later when I figure out how to download a year's worth of data.
+
 ## Data Import and Cleaning
 ```{r}
 # The last approach I used trying to scrape Reddit data using fromJSON produced the same issues from before with page scrolling. So after some Chat GPTing, I found the RedditExtractoR package. It downloaded all the data I needed using this code, but it took about 15 minutes to do so. This package isn't part of the course materials, but it was an effective solution. See this page for details: https://github.com/ivan-rivera/RedditExtractor.
@@ -41,7 +43,11 @@ io_corpus_trimmed <- io_corpus_original %>%
   tm_map(removePunctuation) %>%
   tm_map(removeWords, c(stopwords("en"), "io psychology")) %>%
   tm_map(stripWhitespace) %>%
-  tm_map(content_transformer(lemmatize_words))
+  tm_map(content_transformer(lemmatize_words)) %>%
+  # Even after removing io-relevant stopwords, empty cases still exist. So we remove them with this function
+  tm_filter(FUN = function(x) {
+    return(nchar(stripWhitespace(x$content)[[1]]) > 1)
+  })
 ```
 
 ```{r Comparing corpuses}
@@ -66,8 +72,18 @@ n <- length(io_corpus_trimmed)
 k <- ncol(io_slim_dtm)
 n/k
 
-# This line of code identifies which indices in our DTM are blank. I tried to preprocess softly to prevent problems here.
-empty_indices <- which(io_dtm$dimnames$Terms == 0, arr.ind = TRUE)
-# Print the empty indices. Because none were printed, no empty indices exist.
-print(empty_indices)
+
+# This identifies which indices in our DTM are blank. I tried to preprocess softly to prevent problems here.
+io_dtm_tbl <- tibble(totals = rowSums(test), as_tibble(io_corpus_original))
+# Opening this tibble and using the arrow keys to sort the "totals" column, we find there are two missing data points. They coincide with doc_ids 487 and 737. To remove these entries, I went back and used the code provided on the Canvas page.
+```
+
+```{r Categorizing posgts}
+# I am using paralellized processing to speed up this part of analyses. If you are running these analyses on a computer with less than 8 cores, you may want to not run this code.
+num_clusters <- makeCluster(7)
+registerDoParallel(num_clusters)
+lda_tuning <- FindTopicsNumber(io_dtm, topics = seq(5, 20, by = 1), metrics = c( "Griffiths2004", "CaoJuan2009", "Arun2010", "Deveaud2014"), verbose = TRUE)
+FindTopicsNumber_plot(lda_tuning)
+stopCluster(num_clusters)
+registerDoSEQ()
 ```
