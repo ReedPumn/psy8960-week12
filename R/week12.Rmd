@@ -125,3 +125,11 @@ week12_tbl <- topics_tbl_with_ids %>%
          probability = gammas$gamma) %>%
   select(-title, -upvotes)
 ```
+
+```{r Interpretations}
+# Q1: Using the beta matrix alone, what topics would you conclude your final topic list maps onto? (e.g., topic 1, 2, 3…n each reflect what substantive topic construct? Use your best judgment.)
+# A1: From the previous topic plots, I chose 10 topics. I labeled these topics as follows: 1) career searching, 2) disseminating content, 3) professional development, 4) career development, 5) I-O functions, 6) seeking advice, 7) training programs, 8) general I-O psychology, 9) analysis, and 10) graduate school.
+
+# Q2: Look at the original text of documents with the highest and lowest probabilities assigned to each document. Do your topic names derived from your interpretation of the beta matrix conceptually match with the content of the original posts? What kind of validity evidence does your answer to this question represent?
+# A2: No, each topic does not have a perfectly clean set of indices in which the highest probabilities clearly represent the given topic. At best, about half of the documents within a given topic "hang around" the same title for that topic. As a result, an argument could be made to choose less topics. The process of exploring possible themes in our data resembles factorial validity, particularly through exploratory factor analysis.
+```
