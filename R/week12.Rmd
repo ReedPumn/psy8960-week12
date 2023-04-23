@@ -41,7 +41,19 @@ week12_tbl <- read_csv(file = "../data/week12data.csv")
 ```{r Corpus setup}
 # This is our base corpus we will use to contain all of the Reddit documents over the past year.
 io_corpus_original <- VCorpus(VectorSource(week12_tbl$title))
-# This trimmed corpus is similar to the original, but removes unnecessary information. I did not use many custom stop words given the relatively small number of documents we are analyzing (about 1000).
+
+# I need a trimmed corpus that does not remove empty rows from the dataset for my compare_them function. This is because blank rows that are removed would produce systematic differences across comparisons. This series of pipes creates that trimmed corpus.
+io_corpus_trimmed_full <- io_corpus_original %>%
+  tm_map(content_transformer(replace_abbreviation)) %>%
+  tm_map(content_transformer(replace_contraction)) %>%
+  tm_map(content_transformer(str_to_lower)) %>%
+  tm_map(removeNumbers) %>%
+  tm_map(removePunctuation) %>%
+  tm_map(removeWords, c(stopwords("en"), "io psychology")) %>%
+  tm_map(stripWhitespace) %>%
+  tm_map(content_transformer(lemmatize_words))
+
+# This trimmed corpus is similar to the original corpus, but removes unnecessary information. I did not use many custom stop words given the relatively small number of documents we are analyzing (about 1000).
 io_corpus_trimmed <- io_corpus_original %>%
   tm_map(content_transformer(replace_abbreviation)) %>%
   tm_map(content_transformer(replace_contraction)) %>%
@@ -59,14 +71,14 @@ io_corpus_trimmed <- io_corpus_original %>%
 
 ```{r Comparing corpuses}
 # This function compares our two corpuses to let us check whether the trimmed corpus properly trimmed unnecessary information.
-compare_them <- function(corpus_origingal, corpus_trimmed) {
+compare_them <- function(io_corpus_origingal, io_corpus_trimmed) {
   possible <- 1:length(io_corpus_original)
   chosen <- sample(possible, 1)
   compare <- list("Original" = content(io_corpus_original[[chosen]]), "Comparison" = content(io_corpus_trimmed[[chosen]]))
   return(compare)
 }
 # With this replicate function, I can easily compare a decent number of entries at once.
-replicate(20, compare_them())
+replicate(20, compare_them(io_corpus_original, io_corpus_trimmed_full))
 ```
 
 ```{r Create DTMs}
@@ -96,7 +108,7 @@ lda_tuning <- FindTopicsNumber(io_dtm, topics = seq(5, 20, by = 1), metrics = c(
 FindTopicsNumber_plot(lda_tuning)
 stopCluster(num_clusters)
 registerDoSEQ()
-# It seems like 10 topics exist in our data.
+# It seems like 10 topics exist in our data. The minimize function clearly intersect around 10 functions, and the maximize function is not far off. So a decision to include 10 topics is a liberal, but appropriate choice.
 ```
 
 ```{r Analyzing categories}
@@ -106,6 +118,7 @@ lda_results <- LDA(io_dtm, 10)
 lda_betas <- tidy(lda_results, matrix = "beta")
 # Similarly, this line documents our gamma matrix, noting the likelihood fo each document appearing in the data.
 lda_gammas <- tidy(lda_results, matrix = "gamma")
+
 # This series of pipes produces the top words in each category. It's very helpful to see what topics each category focuses on.
 betas <- lda_betas %>%
   group_by(topic) %>%
@@ -126,17 +139,17 @@ week12_tbl_with_ids <- week12_tbl %>%
   mutate(doc_id = as.character(1:nrow(week12_tbl)))
 topics_tbl_with_ids <- tibble(doc_id = Docs(io_dtm))
 # We then create the tibble with the four columns we desire.
-week12_tbl <- topics_tbl_with_ids %>%
+topics_tbl <- topics_tbl_with_ids %>%
   left_join(y = week12_tbl_with_ids) %>%
   mutate(original = title,
-         topic = gammas$topic,
-         probability = gammas$gamma) %>%
+  topic = gammas$topic,
+  probability = gammas$gamma) %>%
   select(-title, -upvotes)
 ```
 
 ```{r Creating final tibble}
 # This final tibble adds the upvotes column to the week12_tbl.
-final_tbl <- week12_tbl %>%
+final_tbl <- topics_tbl %>%
   full_join(week12_tbl_with_ids) %>%
   select(-title)
 
@@ -150,13 +163,13 @@ summary(aov(upvotes ~ topic, data = final_tbl))
 # A1: From the previous topic plots, I chose 10 topics. I labeled these topics as follows: 1) career searching, 2) disseminating content, 3) professional development, 4) career development, 5) I-O functions, 6) seeking advice, 7) training programs, 8) general I-O psychology, 9) analysis, and 10) graduate school.
 
 # Q2: Look at the original text of documents with the highest and lowest probabilities assigned to each document. Do your topic names derived from your interpretation of the beta matrix conceptually match with the content of the original posts? What kind of validity evidence does your answer to this question represent?
-# A2: No, each topic does not have a perfectly clean set of indices in which the highest probabilities clearly represent the given topic. At best, about half of the documents within a given topic "hang around" the same title for that topic. As a result, an argument could be made to choose less topics. The process of exploring possible themes in our data resembles factorial validity, particularly through exploratory factor analysis.
+# A2: No, each topic does not have a perfectly clean set of indices in which the highest probabilities clearly represent the given topic. At best, about half of the documents within a given topic "focus on" the same title for that topic. As a result, an argument could be made to choose less topics. The process of exploring possible themes in our data resembles factorial validity, particularly through exploratory factor analysis. It also resembles content validity, as we are inspecting the content of the topics to evaluate how well they represent the universe of all possible words that could be included in the given topic.
 ```
 
 ## Visualization
 ```{r Wordcloud}
 # These two lines of code create our word cloud. The specific layout of the word cloud changes upon each calculation, but the basic message is the same.
 wordcloud <- as_tibble(as.matrix(io_dtm))
-wordcloud(names(wordcloud), colSums(wordcloud), max.words = 10)
-# Interpreting the size of the words indicates their commonality in the data. It seems like "research", "work", and "job" are common words due to their large size. This makes sense considering how I-O psychologists research people's jobs and work.
+wordcloud(names(wordcloud), colSums(wordcloud), scale = c(3, .25), max.words = 15)
+# Interpreting the size of the words indicates their commonality in the data. It seems like "research", "work", and "job" are common words due to their large size. This makes sense considering how I-O psychologists research people's jobs and work. "psych" is also commonly used, likely because I removed io psychology, but not "psych".
 ```
